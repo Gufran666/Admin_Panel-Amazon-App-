@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:haptic_feedback/haptic_feedback.dart';
-import 'package:amazon_clone_admin/presentation/theme/theme.dart';
 import 'package:amazon_clone_admin/core/models/product.dart';
 
 class ProductManagementScreen extends StatefulWidget {
@@ -11,7 +9,8 @@ class ProductManagementScreen extends StatefulWidget {
   State<ProductManagementScreen> createState() => _ProductManagementScreenState();
 }
 
-class _ProductManagementScreenState extends State<ProductManagementScreen> with SingleTickerProviderStateMixin {
+class _ProductManagementScreenState extends State<ProductManagementScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _dragController;
   late List<Product> products = [
     Product(
@@ -19,23 +18,36 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> with 
       name: 'Wireless Headphones',
       price: 99.99,
       category: 'Electronics',
+      stock: 50,
+      reorderThreshold: 20,
+      rating: 4.5,
+      reviewsCount: 250,
     ),
     Product(
       id: '2',
       name: 'Smart Watch',
       price: 149.99,
       category: 'Electronics',
+      stock: 30,
+      reorderThreshold: 15,
+      rating: 4.2,
+      reviewsCount: 180,
     ),
     Product(
       id: '3',
       name: 'Bluetooth Speaker',
       price: 79.99,
       category: 'Electronics',
+      stock: 45,
+      reorderThreshold: 10,
+      rating: 4.7,
+      reviewsCount: 310,
     ),
   ];
   late List<Product> _filteredProducts;
   late TextEditingController _searchController;
   Product? _draggedProduct;
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -55,7 +67,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> with 
     super.dispose();
   }
 
-  void _handleDragStart(DraggableDetails details, Product product) {
+  void _handleDragStart(Product product) {
     setState(() {
       _draggedProduct = product;
     });
@@ -66,6 +78,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> with 
       _draggedProduct = null;
     });
   }
+
 
   void _handleDrop(Product product, int targetIndex) {
     final oldIndex = products.indexOf(product);
@@ -79,59 +92,279 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> with 
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarBrightness: Brightness.light,
-      statusBarIconBrightness: Brightness.light,
-    ));
+  void _showAddProductDialog() async {
+    final _formKey = GlobalKey<FormState>();
+    final _nameController = TextEditingController();
+    final _priceController = TextEditingController();
+    final _categoryController = TextEditingController();
+    final _stockController = TextEditingController();
 
-    return MaterialApp(
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark,
-      home: Scaffold(
-        backgroundColor: AppTheme.darkTheme.scaffoldBackgroundColor,
-        appBar: AppBar(
-          backgroundColor: AppTheme.darkTheme.scaffoldBackgroundColor,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            color: AppTheme.darkTheme.textTheme.bodyMedium!.color,
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-          title: Text(
-            'Product Management',
-            style: TextStyle(
-              fontFamily: 'RobotoCondensed',
-              fontWeight: FontWeight.w700,
-              fontSize: 24,
-              color: AppTheme.darkTheme.textTheme.bodyLarge!.color,
-            ),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.add),
-              color: AppTheme.darkTheme.textTheme.bodyMedium!.color,
-              onPressed: () {
-                // Show add product dialog
-              },
-            ),
-          ],
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add New Product'),
+        content: Form(
+          key: _formKey,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildSearchBar(),
-              const SizedBox(height: 16),
-              _buildProductList(),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Product Name'),
+                validator: (value) => value!.isEmpty ? 'Please enter a name' : null,
+              ),
+              TextFormField(
+                controller: _priceController,
+                decoration: const InputDecoration(labelText: 'Price'),
+                keyboardType: TextInputType.number,
+                validator: (value) => value!.isEmpty ? 'Please enter a price' : null,
+              ),
+              TextFormField(
+                controller: _categoryController,
+                decoration: const InputDecoration(labelText: 'Category'),
+                validator: (value) => value!.isEmpty ? 'Please enter a category' : null,
+              ),
+              TextFormField(
+                controller: _stockController,
+                decoration: const InputDecoration(labelText: 'Stock Quantity'),
+                keyboardType: TextInputType.number,
+                validator: (value) => value!.isEmpty ? 'Please enter a quantity' : null,
+              ),
             ],
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _isProcessing ? null : () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: _isProcessing
+                ? null
+                : () async {
+              if (_formKey.currentState!.validate()) {
+                setState(() => _isProcessing = true);
+                // Simulate async operation (e.g., API call)
+                await Future.delayed(const Duration(seconds: 1));
+                if (!mounted) return;
+                setState(() {
+                  final newProduct = Product(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    name: _nameController.text,
+                    price: double.parse(_priceController.text),
+                    category: _categoryController.text,
+                    stock: int.parse(_stockController.text),
+                    rating: 4.5,
+                    reorderThreshold: 20,
+                    reviewsCount: 100,
+                  );
+                  products.insert(0, newProduct);
+                  _filteredProducts = [...products];
+                  _isProcessing = false;
+                });
+                Navigator.pop(context);
+                _nameController.clear();
+                _priceController.clear();
+                _categoryController.clear();
+                _stockController.clear();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Product added successfully')),
+                );
+              }
+            },
+            child: _isProcessing
+                ? const CircularProgressIndicator()
+                : const Text('Add Product'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditProductDialog(Product product) async {
+    final _formKey = GlobalKey<FormState>();
+    final _nameController = TextEditingController(text: product.name);
+    final _priceController = TextEditingController(text: product.price.toString());
+    final _categoryController = TextEditingController(text: product.category);
+    final _stockController = TextEditingController(text: product.stock.toString());
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Product'),
+        content: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Product Name'),
+                validator: (value) => value!.isEmpty ? 'Please enter a name' : null,
+              ),
+              TextFormField(
+                controller: _priceController,
+                decoration: const InputDecoration(labelText: 'Price'),
+                keyboardType: TextInputType.number,
+                validator: (value) => value!.isEmpty ? 'Please enter a price' : null,
+              ),
+              TextFormField(
+                controller: _categoryController,
+                decoration: const InputDecoration(labelText: 'Category'),
+                validator: (value) => value!.isEmpty ? 'Please enter a category' : null,
+              ),
+              TextFormField(
+                controller: _stockController,
+                decoration: const InputDecoration(labelText: 'Stock Quantity'),
+                keyboardType: TextInputType.number,
+                validator: (value) => value!.isEmpty ? 'Please enter a quantity' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _isProcessing ? null : () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: _isProcessing
+                ? null
+                : () async {
+              if (_formKey.currentState!.validate()) {
+                setState(() => _isProcessing = true);
+                // Simulate async operation
+                await Future.delayed(const Duration(seconds: 1));
+                if (!mounted) return;
+                setState(() {
+                  final updatedProduct = product.copyWith(
+                    name: _nameController.text,
+                    price: double.parse(_priceController.text),
+                    category: _categoryController.text,
+                    stock: int.parse(_stockController.text),
+                  );
+                  final index = products.indexOf(product);
+                  products[index] = updatedProduct;
+                  _filteredProducts = [...products];
+                  _isProcessing = false;
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Product updated successfully')),
+                );
+              }
+            },
+            child: _isProcessing
+                ? const CircularProgressIndicator()
+                : const Text('Update Product'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteProduct(Product product) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Deletion'),
+        content: Text('Are you sure you want to delete ${product.name}?'),
+        actions: [
+          TextButton(
+            onPressed: _isProcessing ? null : () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: _isProcessing
+                ? null
+                : () async {
+              setState(() => _isProcessing = true);
+              // Simulate async operation
+              await Future.delayed(const Duration(seconds: 1));
+              if (!mounted) return;
+              setState(() {
+                products.remove(product);
+                _filteredProducts = [...products];
+                _isProcessing = false;
+              });
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${product.name} deleted')),
+              );
+            },
+            child: _isProcessing
+                ? const CircularProgressIndicator()
+                : const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          color: Theme.of(context).textTheme.bodyMedium!.color,
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Product Management',
+          style: TextStyle(
+            fontFamily: 'RobotoCondensed',
+            fontWeight: FontWeight.w700,
+            fontSize: 24,
+            color: Theme.of(context).textTheme.bodyLarge!.color,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            color: Theme.of(context).textTheme.bodyMedium!.color,
+            onPressed: _isProcessing ? null : _showAddProductDialog,
+          ),
+          IconButton(
+            icon: _isProcessing
+                ? const CircularProgressIndicator()
+                : const Icon(Icons.refresh),
+            color: Theme.of(context).textTheme.bodyMedium!.color,
+            onPressed: _isProcessing
+                ? null
+                : () async {
+              setState(() => _isProcessing = true);
+              await Future.delayed(const Duration(seconds: 1));
+              if (!mounted) return;
+              setState(() {
+                _filteredProducts = [...products];
+                _isProcessing = false;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Products refreshed')),
+              );
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildSearchBar(),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _buildProductList(),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _isProcessing ? null : _showAddProductDialog,
+        label: const Text('Add Product'),
+        icon: const Icon(Icons.add),
       ),
     );
   }
@@ -145,91 +378,82 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> with 
           fontFamily: 'OpenSans',
           fontWeight: FontWeight.w600,
           fontSize: 16,
-          color: AppTheme.darkTheme.textTheme.bodyMedium!.color,
+          color: Theme.of(context).textTheme.bodyMedium!.color,
         ),
         enabledBorder: UnderlineInputBorder(
           borderSide: BorderSide(
-            color: AppTheme.darkTheme.textTheme.bodyMedium!.color!.withOpacity(0.5),
+            color: Theme.of(context).textTheme.bodyMedium!.color!.withAlpha(128),
           ),
         ),
         focusedBorder: UnderlineInputBorder(
           borderSide: BorderSide(
-            color: AppTheme.darkTheme.primaryColor,
+            color: Theme.of(context).primaryColor,
           ),
         ),
         prefixIcon: Icon(
           Icons.search,
-          color: AppTheme.darkTheme.textTheme.bodyMedium!.color,
+          color: Theme.of(context).textTheme.bodyMedium!.color,
         ),
         suffixIcon: IconButton(
           icon: const Icon(Icons.clear),
-          color: AppTheme.darkTheme.textTheme.bodyMedium!.color,
-          onPressed: () {
-            _searchController.clear();
-          },
+          color: Theme.of(context).textTheme.bodyMedium!.color,
+          onPressed: () => _searchController.clear(),
         ),
       ),
       style: TextStyle(
         fontFamily: 'OpenSans',
         fontWeight: FontWeight.w600,
         fontSize: 16,
-        color: AppTheme.darkTheme.textTheme.bodyLarge!.color,
+        color: Theme.of(context).textTheme.bodyLarge!.color,
       ),
-      onChanged: (value) {
-        setState(() {
-          _filteredProducts = products.where((product) {
-            return product.name.toLowerCase().contains(value.toLowerCase());
-          }).toList();
-        });
-      },
+      onChanged: (value) => setState(() {
+        _filteredProducts = products
+            .where((product) => product.name.toLowerCase().contains(value.toLowerCase()))
+            .toList();
+      }),
     );
   }
 
   Widget _buildProductList() {
-    return Flexible(
-      child: ListView.builder(
-        itemCount: _filteredProducts.length,
-        itemBuilder: (context, index) {
-          final product = _filteredProducts[index];
-          final isDragged = _draggedProduct == product;
+    return ListView.builder(
+      itemCount: _filteredProducts.length,
+      itemBuilder: (context, index) {
+        final product = _filteredProducts[index];
+        final isDragged = _draggedProduct == product;
 
-          return DragTarget<Product>(
-            onWillAccept: (data) => data == product,
-            onAccept: (data) {
-              _handleDrop(data, index);
-            },
-            builder: (context, candidates, rejects) {
-              return Draggable<Product>(
-                data: product,
-                feedback: _buildDragFeedback(product),
-                onDragStarted: () => _handleDragStart(null, product),
-                onDragEnd: _handleDragEnd,
-                childWhenDragging: Opacity(
-                  opacity: isDragged ? 0.5 : 1.0,
-                  child: _buildProductCard(product),
-                ),
+        return DragTarget<Product>(
+          onWillAcceptWithDetails: (details) => details.data == product,
+          onAcceptWithDetails: (details) => _handleDrop(details.data, index),
+          builder: (context, candidates, rejects) {
+            return Draggable<Product>(
+              data: product,
+              feedback: _buildDragFeedback(product),
+              onDragStarted: () => _handleDragStart(product),
+              onDragEnd: (details) => _handleDragEnd(details),
+              childWhenDragging: Opacity(
+                opacity: isDragged ? 0.5 : 1.0,
                 child: _buildProductCard(product),
-              );
-            },
-          );
-        },
-      ),
+              ),
+              child: _buildProductCard(product),
+            );
+          },
+        );
+      },
     );
   }
+
 
   Widget _buildDragFeedback(Product product) {
     return Card(
       elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             Icon(
-              Icons.cube,
-              color: AppTheme.darkTheme.primaryColor,
+              Icons.local_shipping,
+              color: Theme.of(context).primaryColor,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -239,7 +463,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> with 
                   fontFamily: 'OpenSans',
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
-                  color: AppTheme.darkTheme.textTheme.bodyLarge!.color,
+                  color: Theme.of(context).textTheme.bodyLarge!.color,
                 ),
               ),
             ),
@@ -250,7 +474,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> with 
                 fontFamily: 'OpenSans',
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
-                color: AppTheme.darkTheme.primaryColor,
+                color: Theme.of(context).primaryColor,
               ),
             ),
           ],
@@ -262,13 +486,11 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> with 
   Widget _buildProductCard(Product product) {
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         leading: Icon(
-          Icons.cube,
-          color: AppTheme.darkTheme.primaryColor,
+          Icons.inventory_2,
+          color: Theme.of(context).primaryColor,
         ),
         title: Text(
           product.name,
@@ -276,16 +498,16 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> with 
             fontFamily: 'OpenSans',
             fontWeight: FontWeight.w600,
             fontSize: 16,
-            color: AppTheme.darkTheme.textTheme.bodyLarge!.color,
+            color: Theme.of(context).textTheme.bodyLarge!.color,
           ),
         ),
         subtitle: Text(
-          '\$${product.price.toStringAsFixed(2)} - ${product.category}',
+          '\$${product.price.toStringAsFixed(2)} - ${product.category} | Stock: ${product.stock}',
           style: TextStyle(
             fontFamily: 'OpenSans',
             fontWeight: FontWeight.w500,
             fontSize: 14,
-            color: AppTheme.darkTheme.textTheme.bodyMedium!.color,
+            color: Theme.of(context).textTheme.bodyMedium!.color,
           ),
         ),
         trailing: Row(
@@ -293,20 +515,22 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> with 
           children: [
             IconButton(
               icon: const Icon(Icons.edit),
-              color: AppTheme.darkTheme.textTheme.bodyMedium!.color,
-              onPressed: () {
-                // Show edit product dialog
-              },
+              color: Theme.of(context).textTheme.bodyMedium!.color,
+              onPressed: _isProcessing ? null : () => _showEditProductDialog(product),
             ),
             IconButton(
               icon: const Icon(Icons.delete),
               color: Colors.red,
-              onPressed: () {
-                // Handle delete
-              },
+              onPressed: _isProcessing ? null : () => _deleteProduct(product),
             ),
           ],
         ),
+        onTap: () {
+          if (!_isProcessing) {
+            HapticFeedback.lightImpact();
+            _showEditProductDialog(product);
+          }
+        },
       ),
     );
   }

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:amazon_clone_admin/core/design_system/app_theme.dart';
-import 'package:amazon_clone_admin/core/models/user.dart';
-import 'package:amazon_clone_admin/core/providers/admin_providers.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:intl/intl.dart';
+import 'package:amazon_clone_admin/core/models/user.dart';
+import 'package:amazon_clone_admin/core/models/admin_providers.dart';
 
 class UserManagementScreen extends HookConsumerWidget {
   const UserManagementScreen({super.key});
@@ -17,284 +16,402 @@ class UserManagementScreen extends HookConsumerWidget {
     final selectedDateRange = useState<DateRange?>(null);
     final isFilterPanelOpen = useState<bool>(false);
 
-    final isAdminLoading = ref.watch(userAdminProvider).isLoading;
-    final users = ref.watch(filteredUsersProvider(
-        selectedRoleFilter.value,
-        userSearchController.text,
-        selectedDateRange.value
-    ));
+    final userAsync = ref.watch(userAdminProvider);
 
     useEffect(() {
       return () {
-        // Cleanup any lingering focus nodes
         userSearchController.dispose();
       };
     }, []);
 
-    return MaterialApp(
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark,
-      home: Scaffold(
-        backgroundColor: AppTheme.darkTheme.scaffoldBackgroundColor,
-        appBar: AppBar(
-          backgroundColor: AppTheme.darkTheme.scaffoldBackgroundColor,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            color: AppTheme.darkTheme.textTheme.bodyMedium!.color,
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text(
-            'User Management',
-            style: TextStyle(
-              fontFamily: 'RobotoCondensed',
-              fontWeight: FontWeight.w700,
-              fontSize: 24,
-            ),
-          ),
-          actions: [
-            IconButton(
-              icon: Icon(isFilterPanelOpen.value ? Icons.filter_list_off : Icons.filter_list),
-              color: AppTheme.darkTheme.textTheme.bodyMedium!.color,
-              onPressed: () => isFilterPanelOpen.value = !isFilterPanelOpen.value,
-            ),
-          ],
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              AnimatedSize(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                child: Visibility(
-                  visible: isFilterPanelOpen.value,
-                  maintainState: true,
-                  child: _buildFilterSection(
-                    context,
-                    userSearchController,
-                    selectedRoleFilter,
-                    selectedDateRange,
-                    ref,
+        title: const Text('User Management'),
+        actions: [
+          IconButton(
+            icon: Icon(isFilterPanelOpen.value ? Icons.filter_list_off : Icons.filter_list),
+            onPressed: () => isFilterPanelOpen.value = !isFilterPanelOpen.value,
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              children: [
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 300),
+                  child: Visibility(
+                    visible: isFilterPanelOpen.value,
+                    maintainState: true,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 400),
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: Color(0xFFE0E0E0)),
+                        ),
+                        color: const Color(0xFFF5F5F5),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(maxHeight: 60),
+                                        child: TypeAheadField<User>(
+                                          debounceDuration: const Duration(milliseconds: 300),
+                                          builder: (context, controller, focusNode) {
+                                            return TextField(
+                                              controller: controller,
+                                              focusNode: focusNode,
+                                              decoration: InputDecoration(
+                                                labelText: 'Search users',
+                                                labelStyle: const TextStyle(
+                                                  fontFamily: 'OpenSans',
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 14,
+                                                  color: Color(0xFF555555),
+                                                ),
+                                                enabledBorder: const UnderlineInputBorder(
+                                                  borderSide: BorderSide(color: Color(0xFFAAAAAA)),
+                                                ),
+                                                focusedBorder: const UnderlineInputBorder(
+                                                  borderSide: BorderSide(color: Color(0xFF2196F3)),
+                                                ),
+                                                prefixIcon: const Icon(Icons.search, color: Color(0xFF555555)),
+                                              ),
+                                              onChanged: (value) async {
+                                                // Use the results for filtering if needed
+                                              },
+                                            );
+                                          },
+                                          suggestionsCallback: (pattern) async {
+                                            if (pattern.length < 2) return [];
+                                            return await ref
+                                                .read(userAdminProvider.notifier)
+                                                .searchUsers(pattern);
+                                          },
+                                          itemBuilder: (context, User suggestion) {
+                                            return ListTile(
+                                              leading: CircleAvatar(
+                                                backgroundColor: Colors.grey[300],
+                                                child: Text(
+                                                  suggestion.name[0],
+                                                  style: const TextStyle(color: Colors.black),
+                                                ),
+                                              ),
+                                              title: Text(suggestion.name),
+                                              subtitle: Text(suggestion.email),
+                                            );
+                                          },
+                                          onSelected: (User suggestion) {
+                                            userSearchController.text = suggestion.name;
+                                            // Implement selected user handling
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      flex: 1,
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(maxHeight: 60),
+                                        child: DropdownButtonFormField<String>(
+                                          value: selectedRoleFilter.value,
+                                          onChanged: (value) {
+                                            selectedRoleFilter.value = value;
+                                            // Implement role filter
+                                          },
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value: null,
+                                              child: Text('All Roles', style: TextStyle(color: Color(0xFF555555))),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'admin',
+                                              child: Text('Admin', style: TextStyle(color: Color(0xFF555555))),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'user',
+                                              child: Text('User', style: TextStyle(color: Color(0xFF555555))),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'guest',
+                                              child: Text('Guest', style: TextStyle(color: Color(0xFF555555))),
+                                            ),
+                                          ],
+                                          decoration: InputDecoration(
+                                            labelText: 'Role',
+                                            labelStyle: const TextStyle(
+                                              fontFamily: 'OpenSans',
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14,
+                                              color: Color(0xFF555555),
+                                            ),
+                                            enabledBorder: const UnderlineInputBorder(
+                                              borderSide: BorderSide(color: Color(0xFFAAAAAA)),
+                                            ),
+                                            focusedBorder: const UnderlineInputBorder(
+                                              borderSide: BorderSide(color: Color(0xFF2196F3)),
+                                            ),
+                                          ),
+                                          style: const TextStyle(color: Color(0xFF333333)),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: TextButton(
+                                        onPressed: () async {
+                                          final range = await showDateRangePicker(
+                                            context: context,
+                                            firstDate: DateTime(2000),
+                                            lastDate: DateTime.now(),
+                                            initialDateRange: selectedDateRange.value == null
+                                                ? null
+                                                : DateTimeRange(start: selectedDateRange.value!.start, end: selectedDateRange.value!.end),
+                                          );
+                                          if (range != null) {
+                                            selectedDateRange.value = DateRange(range.start, range.end);
+                                            // Implement date filter
+                                          }
+                                        },
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: const Color(0xFF333333),
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                        ),
+                                        child: Text(
+                                          selectedDateRange.value == null
+                                              ? 'Select Date Range'
+                                              : '${DateFormat.yMd().format(selectedDateRange.value!.start)} - '
+                                              '${DateFormat.yMd().format(selectedDateRange.value!.end)}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      flex: 1,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          TextButton.icon(
+                                            icon: const Icon(Icons.save, color: Color(0xFF2196F3)),
+                                            label: const Text(
+                                              'Save Preset',
+                                              style: TextStyle(color: Color(0xFF333333)),
+                                            ),
+                                            onPressed: () => _showSavePresetDialog(
+                                              context,
+                                              userSearchController.text,
+                                              selectedRoleFilter.value,
+                                              selectedDateRange.value,
+                                              ref,
+                                            ),
+                                          ),
+                                          TextButton.icon(
+                                            icon: const Icon(Icons.restore, color: Color(0xFF2196F3)),
+                                            label: const Text(
+                                              'Reset Filters',
+                                              style: TextStyle(color: Color(0xFF333333)),
+                                            ),
+                                            onPressed: () => _resetFilters(
+                                              userSearchController,
+                                              selectedRoleFilter,
+                                              selectedDateRange,
+                                              ref,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                // Filter presets section
+                                const SizedBox(height: 100),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Expanded(
-                child: isAdminLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : users.isEmpty
-                    ? const Center(child: Text('No users found'))
-                    : _buildUserList(users),
-              ),
-            ],
+                const SizedBox(height: 24),
+                Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: Color(0xFFE0E0E0)),
+                  ),
+                  color: const Color(0xFFF5F5F5),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: userAsync.when(
+                      data: (data) {
+                        if (data.isEmpty) {
+                          return const Center(child: Text('No users found'));
+                        }
+                        return ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 500),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: data.length,
+                            separatorBuilder: (context, index) => const Divider(color: Color(0xFFE0E0E0)),
+                            itemBuilder: (context, index) {
+                              final user = data[index];
+                              return ConstrainedBox(
+                                constraints: const BoxConstraints(minHeight: 72),
+                                child: _buildUserListItem(user, context),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (error, stackTrace) => Center(child: Text('Error: $error')),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => _showAddUserDialog(context, ref),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2196F3),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Add User'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildFilterSection(
-      BuildContext context,
-      TextEditingController searchController,
-      ValueNotifier<String?> selectedRole,
-      ValueNotifier<DateRange?> selectedDate,
-      WidgetRef ref,
-      ) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+  Widget _buildUserListItem(User user, BuildContext context) {
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: Colors.grey[300],
+        child: Text(
+          user.name[0],
+          style: const TextStyle(color: Colors.black),
+        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TypeAheadField(
-                    debounceDuration: const Duration(milliseconds: 300),
-                    textFieldConfiguration: TextFieldConfiguration(
-                      controller: searchController,
-                      decoration: InputDecoration(
-                        labelText: 'Search users',
-                        labelStyle: TextStyle(
-                          fontFamily: 'OpenSans',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: AppTheme.darkTheme.textTheme.bodyMedium!.color,
-                        ),
-                        enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: AppTheme.darkTheme.textTheme.bodyMedium!.color!.withOpacity(0.5),
-                          ),
-                        ),
-                        focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: AppTheme.darkTheme.primaryColor),
-                        ),
-                        prefixIcon: const Icon(Icons.search),
-                      ),
-                      onChanged: (value) => ref
-                          .read(filteredUsersProvider.notifier)
-                          .updateSearchQuery(value),
-                    ),
-                    suggestionsCallback: (pattern) async {
-                      if (pattern.length < 2) return [];
-                      return ref.read(userAdminProvider.notifier).searchUsers(pattern);
-                    },
-                    itemBuilder: (context, User suggestion) {
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.grey[300],
-                          child: Text(
-                            suggestion.name[0],
-                            style: const TextStyle(color: Colors.black),
-                          ),
-                        ),
-                        title: Text(suggestion.name),
-                        subtitle: Text(suggestion.email),
-                      );
-                    },
-                    onSuggestionSelected: (User suggestion) {
-                      searchController.text = suggestion.name;
-                      ref
-                          .read(filteredUsersProvider.notifier)
-                          .updateSearchQuery(suggestion.name);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 1,
-                  child: DropdownButtonFormField<String>(
-                    value: selectedRole.value,
-                    onChanged: (value) {
-                      selectedRole.value = value;
-                      ref
-                          .read(filteredUsersProvider.notifier)
-                          .updateRoleFilter(value);
-                    },
-                    items: const [
-                      DropdownMenuItem(
-                        value: null,
-                        child: Text('All Roles'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'admin',
-                        child: Text('Admin'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'user',
-                        child: Text('User'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'guest',
-                        child: Text('Guest'),
-                      ),
-                    ],
-                    decoration: InputDecoration(
-                      labelText: 'Role',
-                      labelStyle: TextStyle(
-                        fontFamily: 'OpenSans',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: AppTheme.darkTheme.textTheme.bodyMedium!.color,
-                      ),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: AppTheme.darkTheme.textTheme.bodyMedium!.color!.withOpacity(0.5),
-                        ),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppTheme.darkTheme.primaryColor),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: DateRangePicker(
-                    initialDateRange: selectedDate.value,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime.now(),
-                    onChanged: (range) {
-                      selectedDate.value = range;
-                      ref
-                          .read(filteredUsersProvider.notifier)
-                          .updateDateRangeFilter(range);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextButton.icon(
-                      icon: const Icon(Icons.save),
-                      label: const Text('Save Preset'),
-                      onPressed: () => _showSavePresetDialog(
-                        context,
-                        searchController.text,
-                        selectedRole.value,
-                        selectedDate.value,
-                        ref,
-                      ),
-                    ),
-                    TextButton.icon(
-                      icon: const Icon(Icons.restore),
-                      label: const Text('Reset Filters'),
-                      onPressed: () => _resetFilters(
-                        searchController,
-                        selectedRole,
-                        selectedDate,
-                        ref,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            FutureBuilder<List<FilterPreset>>(
-              future: ref.read(filterPresetsProvider.future),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+      title: Text(
+        user.name,
+        style: const TextStyle(
+          fontFamily: 'OpenSans',
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+          color: Color(0xFF333333),
+        ),
+      ),
+      subtitle: Text(
+        user.email,
+        style: const TextStyle(
+          fontFamily: 'OpenSans',
+          fontWeight: FontWeight.w500,
+          fontSize: 14,
+          color: Color(0xFF555555),
+        ),
+      ),
+      trailing: Text(
+        user.role ?? 'Guest',
+        style: TextStyle(
+          fontFamily: 'OpenSans',
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: _getRoleColor(user.role),
+        ),
+      ),
+      onTap: () => _showUserDetailsDialog(user, context),
+    );
+  }
 
-                return Column(
-                  children: snapshot.data!
-                      .map(
-                        (preset) => ListTile(
-                      leading: const Icon(Icons.save),
-                      title: Text(preset.name),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () => ref
-                            .read(filterPresetsProvider.notifier)
-                            .deletePreset(preset.id),
-                      ),
-                      onTap: () => _applyPreset(
-                        preset,
-                        searchController,
-                        selectedRole,
-                        selectedDate,
-                        ref,
-                      ),
-                    ),
-                  )
-                      .toList(),
-                );
-              },
-            ),
-          ],
+  Color _getRoleColor(String? role) {
+    switch (role) {
+      case 'admin':
+        return const Color(0xFF2196F3);
+      case 'user':
+        return const Color(0xFF4CAF50);
+      case 'guest':
+        return const Color(0xFFFFC107);
+      default:
+        return Colors.grey;
+    }
+  }
+
+  void _showUserDetailsDialog(User user, BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        backgroundColor: const Color(0xFFF5F5F5),
+        title: Text(
+          'User Details: ${user.name}',
+          style: const TextStyle(color: Color(0xFF333333)),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Email: ${user.email}',
+                style: const TextStyle(color: Color(0xFF555555)),
+              ),
+              Text(
+                'Role: ${user.role ?? 'Guest'}',
+                style: const TextStyle(color: Color(0xFF555555)),
+              ),
+              Text(
+                'Registered: ${DateFormat.yMMMd().format(user.registrationDate)}',
+                style: const TextStyle(color: Color(0xFF555555)),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2196F3),
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.edit),
+                label: const Text('Edit User'),
+                onPressed: () {
+                  // Implement edit user logic
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -310,40 +427,59 @@ class UserManagementScreen extends HookConsumerWidget {
     final _formKey = GlobalKey<FormState>();
     final _presetNameController = TextEditingController();
 
+    if (!context.mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Save Filter Preset'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        backgroundColor: const Color(0xFFF5F5F5),
+        title: const Text(
+          'Save Filter Preset',
+          style: TextStyle(color: Color(0xFF333333)),
+        ),
         content: Form(
           key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _presetNameController,
-                decoration: const InputDecoration(labelText: 'Preset Name'),
-                validator: (value) =>
-                value!.isEmpty ? 'Please enter a name' : null,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    ref.read(filterPresetsProvider.notifier).savePreset(
-                      FilterPreset(
-                        id: DateTime.now().millisecondsSinceEpoch.toString(),
-                        name: _presetNameController.text,
-                        searchTerm: searchTerm,
-                        role: role,
-                        dateRange: dateRange,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: _presetNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Preset Name',
+                      labelStyle: TextStyle(color: Color(0xFF555555)),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFFAAAAAA)),
                       ),
-                    );
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Save Preset'),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF2196F3)),
+                      ),
+                    ),
+                    validator: (value) => value!.isEmpty ? 'Please enter a name' : null,
+                    style: const TextStyle(color: Color(0xFF333333)),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2196F3),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      if (_formKey.currentState!.validate()) {
+                        // Implement saving preset logic
+                        Navigator.pop(context);
+                      }
+                    },
+                    child: const Text('Save Preset'),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -359,235 +495,162 @@ class UserManagementScreen extends HookConsumerWidget {
     searchController.text = '';
     selectedRole.value = null;
     selectedDate.value = null;
-    ref.read(filteredUsersProvider.notifier).resetFilters();
+    // Implement resetting filters logic
   }
 
-  void _applyPreset(
-      FilterPreset preset,
-      TextEditingController searchController,
-      ValueNotifier<String?> selectedRole,
-      ValueNotifier<DateRange?> selectedDate,
-      WidgetRef ref,
-      ) {
-    searchController.text = preset.searchTerm;
-    selectedRole.value = preset.role;
-    selectedDate.value = preset.dateRange;
-    ref.read(filteredUsersProvider.notifier).applyPreset(preset);
-  }
+  void _showAddUserDialog(BuildContext context, WidgetRef ref) {
+    final _formKey = GlobalKey<FormState>();
+    final _nameController = TextEditingController();
+    final _emailController = TextEditingController();
+    String _role = 'user';
+    bool _obscurePassword = true;
 
-  Widget _buildUserList(List<User> users) {
-    return ListView.separated(
-      itemCount: users.length,
-      separatorBuilder: (context, index) => const Divider(),
-      itemBuilder: (context, index) {
-        final user = users[index];
-        return _buildUserListItem(user);
-      },
-    );
-  }
+    if (!context.mounted) return;
 
-  Widget _buildUserListItem(User user) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Colors.grey[300],
-        child: Text(
-          user.name[0],
-          style: const TextStyle(color: Colors.black),
-        ),
-      ),
-      title: Text(
-        user.name,
-        style: const TextStyle(
-          fontFamily: 'OpenSans',
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
-        ),
-      ),
-      subtitle: Text(
-        user.email,
-        style: const TextStyle(
-          fontFamily: 'OpenSans',
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
-        ),
-      ),
-      trailing: Text(
-        user.role ?? 'Guest',
-        style: TextStyle(
-          fontFamily: 'OpenSans',
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-          color: _getRoleColor(user.role),
-        ),
-      ),
-      onTap: () => _showUserDetailsDialog(user),
-    );
-  }
-
-  Color _getRoleColor(String? role) {
-    switch (role) {
-      case 'admin':
-        return Colors.blue;
-      case 'user':
-        return Colors.green;
-      case 'guest':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  void _showUserDetailsDialog(User user) {
     showDialog(
-      context: navigatorKey.currentContext!,
+      context: context,
       builder: (context) => AlertDialog(
-        title: Text('User Details: ${user.name}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Email: ${user.email}'),
-            Text('Role: ${user.role ?? 'Guest'}'),
-            Text('Registered: ${DateFormat.yMMMd().format(user.registrationDate)}'),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.edit),
-              label: const Text('Edit User'),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => UserEditScreen(user: user),
-                ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        backgroundColor: const Color(0xFFF5F5F5),
+        title: const Text(
+          'Add New User',
+          style: TextStyle(color: Color(0xFF333333)),
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      labelStyle: TextStyle(color: Color(0xFF555555)),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFFAAAAAA)),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF2196F3)),
+                      ),
+                    ),
+                    validator: (value) => value!.isEmpty ? 'Please enter a name' : null,
+                    style: const TextStyle(color: Color(0xFF333333)),
+                  ),
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      labelStyle: TextStyle(color: Color(0xFF555555)),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFFAAAAAA)),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF2196F3)),
+                      ),
+                    ),
+                    validator: (value) => value!.isEmpty ? 'Please enter an email' : null,
+                    style: const TextStyle(color: Color(0xFF333333)),
+                  ),
+                  DropdownButtonFormField<String>(
+                    value: _role,
+                    onChanged: (value) => _role = value!,
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'admin',
+                        child: Text('Admin', style: TextStyle(color: Color(0xFF333333))),
+                      ),
+                      DropdownMenuItem(
+                        value: 'user',
+                        child: Text('User', style: TextStyle(color: Color(0xFF333333))),
+                      ),
+                      DropdownMenuItem(
+                        value: 'guest',
+                        child: Text('Guest', style: TextStyle(color: Color(0xFF333333))),
+                      ),
+                    ],
+                    decoration: const InputDecoration(
+                      labelText: 'Role',
+                      labelStyle: TextStyle(color: Color(0xFF555555)),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFFAAAAAA)),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF2196F3)),
+                      ),
+                    ),
+                    style: const TextStyle(color: Color(0xFF333333)),
+                  ),
+                  TextFormField(
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      labelStyle: const TextStyle(color: Color(0xFF555555)),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          color: const Color(0xFF555555),
+                        ),
+                        onPressed: () => _obscurePassword = !_obscurePassword,
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFFAAAAAA)),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF2196F3)),
+                      ),
+                    ),
+                    obscureText: _obscurePassword,
+                    validator: (value) => value!.length < 6 ? 'Password must be at least 6 characters' : null,
+                    style: const TextStyle(color: Color(0xFF333333)),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF2196F3),
+            ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2196F3),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              if (_formKey.currentState!.validate()) {
+                final newUser = User(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  name: _nameController.text,
+                  email: _emailController.text,
+                  role: _role,
+                  registrationDate: DateTime.now(),
+                  lastLogin: DateTime.now(),
+                  orderCount: 0,
+                );
+                ref.read(userAdminProvider.notifier).addUser(newUser);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Add User'),
+          ),
+        ],
       ),
     );
   }
 }
 
-class FilterPreset {
-  final String id;
-  final String name;
-  final String searchTerm;
-  final String? role;
-  final DateRange? dateRange;
+class DateRange {
+  final DateTime start;
+  final DateTime end;
 
-  FilterPreset({
-    required this.id,
-    required this.name,
-    required this.searchTerm,
-    this.role,
-    this.dateRange,
-  });
+  DateRange(this.start, this.end);
 }
-
-final filterPresetsProvider = AsyncNotifierProvider<FilterPresetsNotifier, List<FilterPreset>>(
-  FilterPresetsNotifier.new,
-);
-
-class FilterPresetsNotifier extends AsyncNotifier<List<FilterPreset>> {
-  @override
-  Future<List<FilterPreset>> build() async {
-    // Replace with actual storage solution
-    return mockPresets;
-  }
-
-  Future<void> savePreset(FilterPreset preset) async {
-    state = await AsyncValue.guard(() async {
-      final currentPresets = await build();
-      return [...currentPresets, preset];
-    });
-  }
-
-  Future<void> deletePreset(String presetId) async {
-    state = await AsyncValue.guard(() async {
-      final currentPresets = await build();
-      return currentPresets.where((p) => p.id != presetId).toList();
-    });
-  }
-}
-
-final filteredUsersProvider = StateNotifierProvider<FilteredUsersNotifier, List<User>>((ref) {
-  return FilteredUsersNotifier(ref.watch(userAdminProvider));
-});
-
-class FilteredUsersNotifier extends StateNotifier<List<User>> {
-  final UserAdminNotifier _userAdminNotifier;
-
-  FilteredUsersNotifier(this._userAdminNotifier) : super([]);
-
-  void updateSearchQuery(String query) {
-    state = _userAdminNotifier.users.where((user) {
-      return user.name.toLowerCase().contains(query.toLowerCase()) ||
-          user.email.toLowerCase().contains(query.toLowerCase());
-    }).toList();
-  }
-
-  void updateRoleFilter(String? role) {
-    if (role == null) {
-      state = _userAdminNotifier.users;
-      return;
-    }
-
-    state = _userAdminNotifier.users.where((user) => user.role == role).toList();
-  }
-
-  void updateDateRangeFilter(DateRange? range) {
-    if (range == null) {
-      state = _userAdminNotifier.users;
-      return;
-    }
-
-    state = _userAdminNotifier.users.where((user) {
-      return user.registrationDate.isAfter(range.start) &&
-          user.registrationDate.isBefore(range.end.add(const Duration(days: 1)));
-    }).toList();
-  }
-
-  void applyPreset(FilterPreset preset) {
-    List<User> filteredUsers = _userAdminNotifier.users;
-
-    if (preset.searchTerm.isNotEmpty) {
-      filteredUsers = filteredUsers.where((user) {
-        return user.name.toLowerCase().contains(preset.searchTerm.toLowerCase()) ||
-            user.email.toLowerCase().contains(preset.searchTerm.toLowerCase());
-      }).toList();
-    }
-
-    if (preset.role != null) {
-      filteredUsers = filteredUsers.where((user) => user.role == preset.role).toList();
-    }
-
-    if (preset.dateRange != null) {
-      filteredUsers = filteredUsers.where((user) {
-        return user.registrationDate.isAfter(preset.dateRange!.start) &&
-            user.registrationDate.isBefore(preset.dateRange!.end.add(const Duration(days: 1)));
-      }).toList();
-    }
-
-    state = filteredUsers;
-  }
-
-  void resetFilters() {
-    state = _userAdminNotifier.users;
-  }
-}
-
-final List<FilterPreset> mockPresets = [
-  FilterPreset(
-    id: 'PST-001',
-    name: 'New Users',
-    searchTerm: '',
-    role: null,
-    dateRange: DateRange(DateTime.now().subtract(const Duration(days: 7)), DateTime.now()),
-  ),
-  FilterPreset(
-    id: 'PST-002',
-    name: 'Admin Team',
-    searchTerm: '',
-    role: 'admin',
-    dateRange: null,
-  ),
-];

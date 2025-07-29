@@ -33,6 +33,12 @@ dependencies:
   json_annotation: ^4.9.0
   haptic_feedback: ^0.5.1+1
   syncfusion_flutter_charts: ^29.1.40
+  flutter_typeahead: ^5.2.0
+  hooks_riverpod: ^2.6.1
+  pull_to_refresh: ^2.0.0
+  firebase_core: ^3.13.1
+  firebase_auth: ^5.5.4
+  supabase_flutter: ^2.9.0
 
 dev_dependencies:
   flutter_test:
@@ -49,6 +55,7 @@ flutter:
   generate: true
   assets:
     - assets/fonts/
+    - assets/images/
 
   fonts:
     - family: RobotoCondensed

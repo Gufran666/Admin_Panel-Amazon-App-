@@ -1,4 +1,3 @@
-import 'package:amazon_clone_admin/core/models/admin_user.dart';
 import 'package:amazon_clone_admin/core/models/product.dart';
 import 'package:amazon_clone_admin/core/models/order.dart';
 import 'package:amazon_clone_admin/core/models/user.dart';
@@ -23,26 +22,35 @@ class MockRecommendationService implements RecommendationService {
           id: 'P101',
           name: 'Wireless Headphones',
           category: 'Electronics',
-          currentStock: 15,
+          price: 149.99,
+          stock: 15,
           reorderThreshold: 20,
+          rating: 4.5,
+          reviewsCount: 250,
         ),
         Product(
           id: 'P102',
           name: 'Smart Watch',
           category: 'Electronics',
-          currentStock: 8,
+          price: 99.99,
+          stock: 8,
           reorderThreshold: 15,
+          rating: 4.2,
+          reviewsCount: 180,
         ),
         Product(
           id: 'P103',
           name: 'Bluetooth Speaker',
           category: 'Electronics',
-          currentStock: 5,
+          price: 79.99,
+          stock: 5,
           reorderThreshold: 10,
+          rating: 4.7,
+          reviewsCount: 310,
         ),
       ];
     } catch (e, stackTrace) {
-      logger.e('Error getting suggested products to restock', e, stackTrace);
+      logger.e('Error getting suggested products to restock', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -56,25 +64,27 @@ class MockRecommendationService implements RecommendationService {
         Order(
           id: 'O101',
           userId: 'U101',
-          totalAmount: 149.99,
+          total: 149.99,
           status: 'pending',
+          date: DateTime.now().subtract(const Duration(days: 7)),
           items: [
-            OrderItem(productId: 'P101', quantity: 1),
-            OrderItem(productId: 'P102', quantity: 1),
+            OrderItem(productId: 'P101', productName: 'Wireless Headphones', quantity: 1),
+            OrderItem(productId: 'P102', productName: 'Smart Watch', quantity: 1),
           ],
         ),
         Order(
           id: 'O102',
           userId: 'U102',
-          totalAmount: 79.99,
+          total: 79.99,
           status: 'shipped',
+          date: DateTime.now().subtract(const Duration(days: 3)),
           items: [
-            OrderItem(productId: 'P103', quantity: 2),
+            OrderItem(productId: 'P103', productName: 'Bluetooth Speaker', quantity: 2),
           ],
         ),
       ];
     } catch (e, stackTrace) {
-      logger.e('Error getting suggested orders to follow up', e, stackTrace);
+      logger.e('Error getting suggested orders to follow up', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -89,19 +99,23 @@ class MockRecommendationService implements RecommendationService {
           id: 'U101',
           name: 'John Doe',
           email: 'john@example.com',
+          role: 'customer', // Added missing attribute
           lastLogin: DateTime.now().subtract(const Duration(days: 30)),
+          registrationDate: DateTime.now().subtract(const Duration(days: 365)), // Added missing attribute
           orderCount: 5,
         ),
         User(
           id: 'U102',
           name: 'Jane Smith',
           email: 'jane@example.com',
+          role: 'customer',
           lastLogin: DateTime.now().subtract(const Duration(days: 45)),
+          registrationDate: DateTime.now().subtract(const Duration(days: 400)),
           orderCount: 8,
         ),
       ];
     } catch (e, stackTrace) {
-      logger.e('Error getting suggested users to engage', e, stackTrace);
+      logger.e('Error getting suggested users to engage', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }
